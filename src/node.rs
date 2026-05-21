@@ -1,1 +1,3 @@
-pub struct ID;
+use uuid::Uuid;
+
+pub struct ID(Uuid);
