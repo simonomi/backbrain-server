@@ -1,3 +1,4 @@
 use uuid::Uuid;
 
-pub struct ID(Uuid);
+#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+pub struct ID(pub Uuid);

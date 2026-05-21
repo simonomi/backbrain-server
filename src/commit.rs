@@ -2,7 +2,7 @@ use uuid::Uuid;
 use crate::syncable::Syncable;
 use std::collections::HashSet;
 
-pub struct ID(Uuid);
+pub struct ID(pub Uuid);
 
 pub struct Commit<Data: Syncable> {
 	// id: ID, // ?

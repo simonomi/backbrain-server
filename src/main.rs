@@ -1,25 +1,27 @@
 #![warn(clippy::pedantic, clippy::nursery)]
 #![allow(dead_code)]
 
+use itertools::Itertools;
 use tungstenite::{Message, accept};
 
 use crate::{children::Children, commit::Commit, content::Content};
-use std::{collections::{HashMap, HashSet}, env, net::TcpListener, sync::RwLock, thread::spawn};
+use std::{collections::{HashMap, HashSet}, env, net::TcpListener, sync::{LazyLock, RwLock}, thread::spawn};
 
 mod node;
 mod commit;
 mod syncable;
 mod content;
 mod children;
+mod checksum;
 
 struct Generation(usize);
 
 // TODO: persistence
-struct Model {
-	nodes: HashMap<node::ID, HashSet<commit::ID>>,
-	
-	content: HashMap<commit::ID, Commit<Content>>,
-	children: HashMap<commit::ID, Commit<Children>>,
+#[derive(Default)]
+pub struct Model {
+	content: HashMap<node::ID, HashMap<commit::ID, Commit<Content>>>,
+	children: HashMap<node::ID, HashMap<commit::ID, Commit<Children>>>,
+	// we will need state for permissions, but not yet
 	
 	history: Vec<HashSet<(node::ID, commit::ID)>>,
 }
@@ -37,9 +39,10 @@ struct Peer {
 
 struct PublicKey;
 
+static MODEL_LOCK: LazyLock<RwLock<Model>> = LazyLock::new(RwLock::default);
+
 fn main() {
-	let peers: Vec<Peer>;
-	let model: RwLock<Model>;
+	// let peers: Vec<Peer>;
 	
 	let backbrain_address = env::var("BACKBRAIN_ADDRESS").unwrap();
 	
@@ -48,7 +51,7 @@ fn main() {
 	println!("started at {backbrain_address}");
 	
 	for stream in server.incoming() {
-		spawn(move || {
+		spawn(|| {
 			let mut websocket = accept(stream.unwrap()).unwrap();
 			
 			loop {
@@ -62,6 +65,22 @@ fn main() {
 					let response = Message::Text("loud and clear".into());
 					
 					websocket.send(response).unwrap();
+					
+					let model = MODEL_LOCK.read().unwrap();
+					
+					let checksums: HashMap<node::ID, md5::Digest> = model.content.keys()
+						.chain(model.children.keys())
+						.unique()
+						.cloned()
+						.map(|node_id| {
+							let checksum = model.checksum(&node_id);
+							(node_id, checksum)
+						})
+						.collect();
+					
+					drop(model);
+					
+					dbg!(checksums);
 				}
 			}
 		});
