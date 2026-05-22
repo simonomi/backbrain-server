@@ -4,7 +4,7 @@
 use itertools::Itertools;
 use tungstenite::{Message, accept};
 
-use crate::{children::Children, commit::Commit, content::Content};
+use crate::{checksum::Checksum, children::Children, commit::Commit, content::Content};
 use std::{collections::{HashMap, HashSet}, env, net::TcpListener, sync::{LazyLock, RwLock}, thread::spawn};
 
 mod node;
@@ -59,16 +59,24 @@ fn main() {
 				
 				if message.is_close() {
 					break;
-				} else if let Ok(text) = message.into_text() {
+				} else if message.is_text() {
+					let text = message.into_text().unwrap();
 					println!("{text}");
 					
 					let response = Message::Text("loud and clear".into());
 					
 					websocket.send(response).unwrap();
+				} else {
+					let bytes = message.into_data();
+					
+					let other_checksums: HashMap<node::ID, Checksum> = serde_json::from_slice(&bytes)
+						.unwrap();
+					
+					dbg!(other_checksums);
 					
 					let model = MODEL_LOCK.read().unwrap();
 					
-					let checksums: HashMap<node::ID, md5::Digest> = model.content.keys()
+					let checksums: HashMap<node::ID, Checksum> = model.content.keys()
 						.chain(model.children.keys())
 						.unique()
 						.cloned()
@@ -80,7 +88,9 @@ fn main() {
 					
 					drop(model);
 					
-					dbg!(checksums);
+					let string = serde_json::to_string(&checksums).unwrap();
+					
+					dbg!(checksums, string);
 				}
 			}
 		});

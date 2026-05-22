@@ -1,15 +1,29 @@
 use std::collections::HashMap;
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use crate::{Model, commit::{self, Commit}, node, syncable::Syncable};
 
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(transparent)]
+pub struct Checksum {
+	#[serde(with = "hex::serde")]
+	digest: [u8; 16]
+}
+
 impl Model {
-	pub fn checksum(&self, node_id: &node::ID) -> md5::Digest {
+	#[must_use]
+	pub fn checksum(&self, node_id: &node::ID) -> Checksum {
 		let mut md5 = md5::Context::new();
 		
-		combine(&mut md5, self.content.get(node_id).unwrap());
-		combine(&mut md5, self.children.get(node_id).unwrap());
+		if let Some(content) = self.content.get(node_id) {
+			combine(&mut md5, content);
+		}
 		
-		md5.finalize()
+		if let Some(children) = self.children.get(node_id) {
+			combine(&mut md5, children);
+		}
+		
+		Checksum { digest: *md5.finalize() }
 	}
 }
 
