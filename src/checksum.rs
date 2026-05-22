@@ -15,11 +15,11 @@ impl Model {
 	pub fn checksum(&self, node_id: &node::ID) -> Checksum {
 		let mut md5 = md5::Context::new();
 		
-		if let Some(content) = self.content.get(node_id) {
+		if let Some(content) = self.commits.content.get(node_id) {
 			combine(&mut md5, content);
 		}
 		
-		if let Some(children) = self.children.get(node_id) {
+		if let Some(children) = self.commits.children.get(node_id) {
 			combine(&mut md5, children);
 		}
 		

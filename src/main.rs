@@ -4,7 +4,7 @@
 use itertools::Itertools;
 use tungstenite::{Message, accept};
 
-use crate::{checksum::Checksum, children::Children, commit::Commit, content::Content};
+use crate::{checksum::Checksum, commits::Commits};
 use std::{collections::{HashMap, HashSet}, env, net::TcpListener, sync::{LazyLock, RwLock}, thread::spawn};
 
 mod node;
@@ -13,14 +13,14 @@ mod syncable;
 mod content;
 mod children;
 mod checksum;
+mod commits;
 
 struct Generation(usize);
 
 // TODO: persistence
 #[derive(Default)]
 pub struct Model {
-	content: HashMap<node::ID, HashMap<commit::ID, Commit<Content>>>,
-	children: HashMap<node::ID, HashMap<commit::ID, Commit<Children>>>,
+	commits: Commits,
 	// we will need state for permissions, but not yet
 	
 	history: Vec<HashSet<(node::ID, commit::ID)>>,
@@ -54,45 +54,61 @@ fn main() {
 		spawn(|| {
 			let mut websocket = accept(stream.unwrap()).unwrap();
 			
-			loop {
-				let message = websocket.read().unwrap();
-				
-				if message.is_close() {
-					break;
-				} else if message.is_text() {
-					let text = message.into_text().unwrap();
-					println!("{text}");
-					
-					let response = Message::Text("loud and clear".into());
-					
-					websocket.send(response).unwrap();
-				} else {
-					let bytes = message.into_data();
-					
-					let other_checksums: HashMap<node::ID, Checksum> = serde_json::from_slice(&bytes)
-						.unwrap();
-					
-					dbg!(other_checksums);
-					
-					let model = MODEL_LOCK.read().unwrap();
-					
-					let checksums: HashMap<node::ID, Checksum> = model.content.keys()
-						.chain(model.children.keys())
-						.unique()
-						.cloned()
-						.map(|node_id| {
-							let checksum = model.checksum(&node_id);
-							(node_id, checksum)
-						})
-						.collect();
-					
-					drop(model);
-					
-					let string = serde_json::to_string(&checksums).unwrap();
-					
-					dbg!(checksums, string);
-				}
+			websocket.send(Message::Text("full".into())).unwrap();
+			
+			let message = websocket.read().unwrap();
+			
+			if !message.into_text().is_ok_and(|text| text == "full") {
+				println!("invalid sync type, closing connection");
+				websocket.close(None).unwrap();
+				websocket.flush().unwrap();
+				return;
 			}
+			
+			let model = MODEL_LOCK.read().unwrap();
+			
+			let checksums: HashMap<node::ID, Checksum> = model.commits.content.keys()
+				.chain(model.commits.children.keys())
+				.unique()
+				.cloned()
+				.map(|node_id| {
+					let checksum = model.checksum(&node_id);
+					(node_id, checksum)
+				})
+				.collect();
+			
+			drop(model);
+			
+			let bytes = serde_json::to_vec(&checksums).unwrap();
+			
+			websocket.send(Message::binary(bytes)).unwrap();
+			
+			let string = serde_json::to_string(&checksums).unwrap();
+			println!("sent checksums: {string}");
+			
+			let message = websocket.read().unwrap();
+			
+			let bytes = message.into_data();
+			
+			println!("received checksums: {}", str::from_utf8(&bytes).unwrap());
+			
+			let other_checksums: HashMap<node::ID, Checksum> = serde_json::from_slice(&bytes)
+				.unwrap();
+			
+			// let differing_node_ids = 
+			
+			// let commits = 
+			
+			// TODO: send commits
+			
+			let message = websocket.read().unwrap();
+			
+			let bytes = message.into_data();
+			
+			println!("received commits: {}", str::from_utf8(&bytes).unwrap());
+			
+			let commits: Commits = serde_json::from_slice(&bytes)
+				.unwrap();
 		});
 	}
 }
