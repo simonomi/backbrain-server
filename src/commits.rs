@@ -10,7 +10,7 @@ pub struct Commits {
 }
 
 impl Commits {
-	pub fn extend(&mut self, other: Commits) {
+	pub fn extend(&mut self, other: Self) {
 		self.content.extend(other.content);
 		self.children.extend(other.children);
 	}
