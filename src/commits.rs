@@ -8,3 +8,10 @@ pub struct Commits {
 	pub content: HashMap<node::ID, HashMap<commit::ID, Commit<Content>>>,
 	pub children: HashMap<node::ID, HashMap<commit::ID, Commit<Children>>>,
 }
+
+impl Commits {
+	pub fn extend(&mut self, other: Commits) {
+		self.content.extend(other.content);
+		self.children.extend(other.children);
+	}
+}

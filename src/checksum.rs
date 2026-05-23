@@ -3,7 +3,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use crate::{Model, commit::{self, Commit}, node, syncable::Syncable};
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug)]
 #[serde(transparent)]
 pub struct Checksum {
 	#[serde(with = "hex::serde")]

@@ -7,21 +7,21 @@ use std::collections::HashSet;
 #[serde(transparent)]
 pub struct ID(pub Uuid);
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Commit<Data: Syncable> {
 	kind: CommitKind<Data>,
 	created_at: f64
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CommitKind<Data: Syncable> {
 	Regular { event: Data::Event, predecessor: Option<Predecessor<Data>> },
 	Merge { merge: Data::Merge, predecessors: HashSet<Predecessor<Data>> }
 }
 
-#[derive(Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Predecessor<Data: Syncable> {
 	Commit(ID),

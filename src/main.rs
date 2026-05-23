@@ -4,7 +4,7 @@
 use itertools::Itertools;
 use tungstenite::{Message, accept};
 
-use crate::{checksum::Checksum, commits::Commits};
+use crate::{checksum::Checksum, commit::Commit, commits::Commits, content::Content};
 use std::{collections::{HashMap, HashSet}, env, net::TcpListener, sync::{LazyLock, RwLock}, thread::spawn};
 
 mod node;
@@ -77,8 +77,6 @@ fn main() {
 				})
 				.collect();
 			
-			drop(model);
-			
 			let bytes = serde_json::to_vec(&checksums).unwrap();
 			
 			websocket.send(Message::binary(bytes)).unwrap();
@@ -95,11 +93,36 @@ fn main() {
 			let other_checksums: HashMap<node::ID, Checksum> = serde_json::from_slice(&bytes)
 				.unwrap();
 			
-			// let differing_node_ids = 
+			let differing_node_ids: HashSet<node::ID> = checksums.iter()
+				.filter(|(node_id, checksum)| other_checksums.get(node_id) != Some(*checksum))
+				.map(|(node_id, _)| node_id)
+				.cloned()
+				.collect();
 			
-			// let commits = 
+			// TODO: can this borrow instead of cloning everything?
+			let commits = Commits {
+				content: differing_node_ids.iter()
+					.map(|node_id| (
+						node_id.clone(),
+						model.commits.content.get(node_id).unwrap().clone()
+					))
+					.collect(),
+				children: differing_node_ids.iter()
+					.map(|node_id| (
+						node_id.clone(),
+						model.commits.children.get(node_id).unwrap().clone()
+					))
+					.collect()
+			};
 			
-			// TODO: send commits
+			drop(model);
+			
+			let bytes = serde_json::to_vec(&commits).unwrap();
+			
+			websocket.send(Message::binary(bytes)).unwrap();
+			
+			let string = serde_json::to_string(&commits).unwrap();
+			println!("sent commits: {string}");
 			
 			let message = websocket.read().unwrap();
 			
@@ -107,8 +130,12 @@ fn main() {
 			
 			println!("received commits: {}", str::from_utf8(&bytes).unwrap());
 			
-			let commits: Commits = serde_json::from_slice(&bytes)
+			let new_commits: Commits = serde_json::from_slice(&bytes)
 				.unwrap();
+			
+			let mut model = MODEL_LOCK.write().unwrap();
+			
+			model.commits.extend(new_commits);
 		});
 	}
 }

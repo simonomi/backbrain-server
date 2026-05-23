@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use crate::syncable::{Syncable, SyncableAutoMerge, SyncableEvent, SyncableMergeCommit};
 
-#[derive(Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Content {
 	Text(String),
@@ -9,19 +9,19 @@ pub enum Content {
 	Other
 }
 
-#[derive(Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ContentEvent {
 	SetTo(Content)
 }
 
-#[derive(Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ContentMerge {
 	SetTo(Content)
 }
 
-#[derive(Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ContentAutoMerge {
 	SameContent
